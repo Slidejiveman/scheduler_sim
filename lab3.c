@@ -14,7 +14,7 @@
 typedef struct _node {
     int ptid;             // process/thread ID
     int prio;             // priority. Lower # is higher priority
-    char desc[12];        // description of process/thread
+    char desc[100];        // description of process/thread
     struct _node *next;    // pointer to next node in list
     struct _node *prev;    // pointer to previous node in list
 } node;
@@ -26,6 +26,7 @@ void enqueue();
 bool is_empty();
 void silent_traverse();
 void requeue();
+void enqueue_dispatched();
 void *schedule();
 void *interrupt();
 void *traverse();
@@ -115,6 +116,15 @@ void enqueue(node *new_node)
   
 }
 
+// helper function that adds the min prio node
+// back to the end of the list
+void enqueue_dispatched()
+{
+    TAIL->next = MIN_PRIO;
+    MIN_PRIO->prev = TAIL;
+    TAIL = MIN_PRIO;
+}
+
 // determines if the doubly-linked queue is empty
 bool is_empty() 
 {
@@ -127,7 +137,7 @@ void silent_traverse()
 {
     int min = MAX;
     CURRENT = HEAD;
-    while(CURRENT != NULL)
+    while(CURRENT != TAIL) // tail not considered
     {
         if (CURRENT->prio < min)
         {
@@ -142,21 +152,11 @@ void silent_traverse()
 // and replaces it at the end of the queue
 void requeue()
 {
-    if (TAIL == MIN_PRIO) return;
-    if (HEAD == MIN_PRIO)
-    {
-        HEAD = HEAD->next;
-        HEAD->prev = NULL;
-    } 
-    else
-    { // otherwise the node is in the middle somewhere
-      // link MIN_PRIO's previous node to its next node
-       if (MIN_PRIO->next != NULL) MIN_PRIO->prev->next = MIN_PRIO->next;
-       if (MIN_PRIO->prev != NULL) MIN_PRIO->next->prev = MIN_PRIO->prev;
-    }        
-        MIN_PRIO->next = NULL;
-        MIN_PRIO->prev = TAIL;
-        TAIL = MIN_PRIO;
+    node *previous = MIN_PRIO->prev;
+    node *next = MIN_PRIO->next;
+    previous->next = next;
+    next->prev = previous;
+    enqueue_dispatched();
 }
 
 /* thread methods */
@@ -223,11 +223,12 @@ void *traverse()
 #endif
         pthread_mutex_lock(&mutex);
         CURRENT = HEAD;
-        while(CURRENT != NULL)
+        while(CURRENT != TAIL)
         {
             printf("Current node: %d\n", CURRENT->ptid);
             CURRENT = CURRENT->next;
-        } 
+        }
+        printf("Current node: %d\n", TAIL->ptid); // must print the tail too 
         pthread_mutex_unlock(&mutex);
         sleep(20);
     }
