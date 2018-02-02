@@ -25,6 +25,7 @@ void init_node();
 void enqueue();
 bool is_empty();
 void silent_traverse();
+void requeue();
 void *schedule();
 void *interrupt();
 void *traverse();
@@ -137,6 +138,27 @@ void silent_traverse()
     }
 }
 
+// removes the scheduled node from its location in the queue
+// and replaces it at the end of the queue
+void requeue()
+{
+    if (TAIL == MIN_PRIO) return;
+    if (HEAD == MIN_PRIO)
+    {
+        HEAD = HEAD->next;
+        HEAD->prev = NULL;
+    } 
+    else
+    { // otherwise the node is in the middle somewhere
+      // link MIN_PRIO's previous node to its next node
+       if (MIN_PRIO->next != NULL) MIN_PRIO->prev->next = MIN_PRIO->next;
+       if (MIN_PRIO->prev != NULL) MIN_PRIO->next->prev = MIN_PRIO->prev;
+    }        
+        MIN_PRIO->next = NULL;
+        MIN_PRIO->prev = TAIL;
+        TAIL = MIN_PRIO;
+}
+
 /* thread methods */
 void *schedule()
 {
@@ -151,7 +173,9 @@ void *schedule()
         // place it at the end of the queue 
         pthread_mutex_lock(&mutex);
         silent_traverse();
-        printf("SCHEDULED: Node %d with Prio %d and Desc %s\n", MIN_PRIO->ptid, MIN_PRIO->prio, MIN_PRIO->desc[0]);
+        printf("SCHEDULED: Node %d with Prio %d and Desc %s\n", MIN_PRIO->ptid, MIN_PRIO->prio, MIN_PRIO->desc);
+        MIN_PRIO->prio = rand() % 70 + 31; // 30-100
+        requeue();
         pthread_mutex_unlock(&mutex);       
         sleep(10);
     }
@@ -175,7 +199,7 @@ void *interrupt()
             CURRENT = CURRENT->next;
         }
 #ifdef DEBUG
-        printf("Node %d Priority AFTER update: %d\n", CURRENT->ptid, CURRENT->prio);
+        printf("Node %d Priority BEFORE update: %d\n", CURRENT->ptid, CURRENT->prio);
 #endif
         CURRENT->prio = rand() % 70 + 31; // 30 - 100
 #ifdef DEBUG
